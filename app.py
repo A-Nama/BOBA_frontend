@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # Backend API URL
-API_BASE_URL = "https://backendboba.onrender.com"
+API_BASE_URL = "https://backendboba.onrender.com/"
 
 # Custom background and text color
 st.markdown(
@@ -43,6 +43,16 @@ if "user" not in st.session_state:
     st.session_state.page = "login"
     st.session_state.selected_user = None
 
+# Getting user location
+def get_location():
+    try:
+        response = requests.get("https://ipinfo.io/json")
+        location_data = response.json()
+        latitude, longitude = map(float, location_data["loc"].split(","))
+        return latitude, longitude
+    except:
+        return None, None
+
 # -------- LOGIN PAGE --------
 def login_page():
     st.image("logo.png", width=150)
@@ -52,7 +62,18 @@ def login_page():
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        response = requests.post(f"{API_BASE_URL}/login", json={"username": username, "password": password})
+        latitude, longitude = get_location()
+        if latitude is None or longitude is None:
+            st.error("Could not fetch location. Please check your connection.")
+            return
+
+        response = requests.post(f"{API_BASE_URL}/login", json={
+            "username": username,
+            "password": password,
+            "latitude": latitude,
+            "longitude": longitude
+        })
+
         if response.status_code == 200:
             st.session_state.user = response.json()
             st.session_state.page = "home"
@@ -78,10 +99,10 @@ def signup_page():
     if st.button("Sign Up"):
         response = requests.post(f"{API_BASE_URL}/signup", json={
             "username": username,
-            "email": email,
+            "gmail": email,
             "password": password,
             "bio": bio,
-            "topics": topics.split(",")
+            "interests": topics
         })
         if response.status_code == 201:
             st.success("Account created! Please log in.")
