@@ -1,0 +1,7 @@
+streamlit
+requests
+pymongo
+fastapi
+bcrypt
+uvicorn
+watchdog
