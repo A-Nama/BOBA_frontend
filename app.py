@@ -4,36 +4,82 @@ import requests
 # Backend API URL
 API_BASE_URL = "https://backendboba.onrender.com"
 
+# Custom background and text color
+st.markdown(
+    """
+    <style>
+        body, .stApp {
+            background-color: #dafdb5;
+            color: black;
+        }
+        .stMarkdown, .stTextInput label, .stTextArea label, .stError, .stSuccess {
+            color: black !important;
+        }
+        .stButton>button {
+            background-color: #4C2A1E;
+            color: white;
+            width: 100%;
+            border-radius: 10px;
+        }
+        .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+            border-radius: 10px;
+            color: black;
+            background-color: white;
+        }
+        .title {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: black;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Session state initialization
 if "user" not in st.session_state:
     st.session_state.user = None
     st.session_state.page = "login"
     st.session_state.selected_user = None
 
+# Getting user location
+def get_location():
+    try:
+        response = requests.get("https://ipinfo.io/json")
+        location_data = response.json()
+        latitude, longitude = map(float, location_data["loc"].split(","))
+        return latitude, longitude
+    except Exception as e:
+        st.error(f"Location error: {e}")
+        return None, None
+
 # -------- LOGIN PAGE --------
 def login_page():
     st.image("logo.png", width=150)
-    st.markdown("""
-        <style>
-            .stButton>button {background-color: #4C2A1E; color: white; width: 100%; border-radius: 10px;}
-            .stTextInput>div>div>input {border-radius: 10px;}
-            .title {text-align: center; font-size: 32px; font-weight: bold;}
-        </style>
-    """, unsafe_allow_html=True)
-    
     st.markdown("<h1 class='title'>Welcome back!</h1>", unsafe_allow_html=True)
-    
+
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        response = requests.post(f"{API_BASE_URL}/login", json={"username": username, "password": password})
+        latitude, longitude = get_location()
+        if latitude is None or longitude is None:
+            st.error("Could not fetch location. Please check your connection.")
+            return
+
+        response = requests.post(f"{API_BASE_URL}/login", json={
+            "username": username,
+            "password": password
+        })
+
         if response.status_code == 200:
-            st.session_state.user = response.json()
+            user_data = response.json()
+            st.session_state.user = user_data
             st.session_state.page = "home"
             st.rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("Invalid credentials. Please try again.")
 
     if st.button("Sign Up"):
         st.session_state.page = "signup"
@@ -43,21 +89,29 @@ def login_page():
 def signup_page():
     st.image("logo.png", width=150)
     st.markdown("<h1 class='title'>Create your profile</h1>", unsafe_allow_html=True)
-    
+
     username = st.text_input("Username")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
     bio = st.text_area("Bio")
     topics = st.text_input("Talk to me about (comma-separated)")
-    
+
     if st.button("Sign Up"):
+        latitude, longitude = get_location()
+        if latitude is None or longitude is None:
+            st.error("Could not fetch location. Please check your connection.")
+            return
+
         response = requests.post(f"{API_BASE_URL}/signup", json={
             "username": username,
-            "email": email,
+            "gmail": email,
             "password": password,
             "bio": bio,
-            "topics": topics.split(",")
+            "interests": topics,
+            "latitude": latitude,
+            "longitude": longitude
         })
+
         if response.status_code == 201:
             st.success("Account created! Please log in.")
             st.session_state.page = "login"
@@ -80,7 +134,7 @@ def home_page():
         st.session_state.page = "login"
         st.rerun()
 
-    user_id = st.session_state.user.get('user_id')  # FIX: Use correct key
+    user_id = st.session_state.user.get('user_id')
     if not user_id:
         st.error("User ID missing from session. Please log in again.")
         st.session_state.page = "login"
@@ -113,7 +167,7 @@ def profile_view_page():
 
     st.markdown(f"""
         <h1 class='title'>@{user['username']}</h1>
-        <p style='text-align: center;'>{user['bio']}</p>
+        <p style='text-align: center; color: black;'>{user['bio']}</p>
     """, unsafe_allow_html=True)
 
     st.write("Talk to me about:")
